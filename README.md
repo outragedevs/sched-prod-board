@@ -69,3 +69,13 @@ recording shows:
 
 `{ session, step: 2, productReceipt, url, report, videoLink }` — plus `replay` (what the replay printed)
 when you ran it on your machine instead of GitHub.
+
+## Build, test, record (this fork)
+
+- `npm test` — unit tests for local times plus browser tests against a mocked incident API (no course calls).
+  Needs `npm install` and a Playwright Chromium (`npx playwright install chromium`).
+- `npm run build` — copies `app/` to `dist/` and stamps the current git sha into `<meta name="build">` and
+  the footer (`data-testid="build-sha"`). Refuses to run with uncommitted changes in `app/`.
+- `node scripts/record.mjs <board url> <out dir>` — headless video of the three flows against the live API,
+  plus `events.json` with video-relative times and each ack's receipt. The pointer dot, caption bar and
+  `rec mm:ss` clock are recording aids injected by the script, not part of the board.
