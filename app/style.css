@@ -18,6 +18,15 @@ h1 { margin: 0; font-size: 22px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .error { color: #b00020; }
 footer { color: #777; font-size: 13px; }
+.confirm { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); z-index: 10; }
+.confirm[hidden] { display: none; }
+.confirm-card { background: #fff; border-radius: 10px; padding: 20px 24px; min-width: 320px; max-width: 520px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25); }
+.confirm-text { margin: 0 0 16px; font-size: 16px; }
+.confirm-id { font-family: ui-monospace, monospace; font-size: 20px; }
+.confirm-what { color: #555; font-size: 14px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.confirm-actions button { font: inherit; padding: 6px 16px; border: 1px solid #888; border-radius: 6px; background: #fff; cursor: pointer; }
+.confirm-actions .primary { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
 @media (max-width: 640px) {
   .row { grid-template-columns: 80px 1fr auto; padding: 8px 12px; }
   .row .sev, .row time { grid-row: 2; }

@@ -60,6 +60,21 @@ await page.addInitScript((t0) => {
     addEventListener('mouseup', () => (dot.style.transform = ''), true);
   });
 }, t0);
+// Reads the confirm like a person: Ack when it names the incident we meant, otherwise Cancel and re-pick.
+async function confirmFor(intended) {
+  const box = page.locator('[data-testid="confirm"]');
+  await box.waitFor({ state: 'visible', timeout: 3000 });
+  const text = (await box.innerText()).replace(/\s+/g, ' ');
+  const named = /INC-\d+/.exec(text)?.[0] ?? null;
+  log('confirm-shown', { intended, named });
+  await page.waitForTimeout(1200);
+  const btn = page.locator(named === intended ? '[data-testid="confirm-ack"]' : '[data-testid="confirm-cancel"]');
+  await moveTo(btn, 10);
+  await page.waitForTimeout(300);
+  await page.mouse.down(); await page.mouse.up();
+  log(named === intended ? 'confirm-ack' : 'confirm-cancel', { intended, named });
+  return named === intended;
+}
 const caption = (text) => page.evaluate((t) => { const c = document.getElementById('rec-caption'); if (c) c.textContent = t; }, text);
 const rowIds = () => page.locator('[data-testid="incident-row"]').evaluateAll((els) => els.map((e) => e.dataset.id));
 async function moveTo(locator, steps = 15) {
@@ -86,6 +101,7 @@ await moveTo(btn);
 await page.waitForTimeout(400);
 log('click', { aimedAt: target });
 await page.mouse.down(); await page.mouse.up();
+await confirmFor(target);
 await page.locator(`[data-id="${target}"] [data-testid="acked"]`).waitFor();
 log('acked-mark', { id: target });
 await page.waitForTimeout(1200);
@@ -108,12 +124,23 @@ const under = await page.evaluate(() => {
 });
 log('click', { aimedAt: top, underPointer: under });
 await page.mouse.down(); await page.mouse.up();
-await page.waitForTimeout(800);
+await caption(`ack-incident: the rows moved; the confirm names ${under}, not ${top}`);
+if (!(await confirmFor(top))) {
+  await caption(`ack-incident: cancelled ${under}; picking ${top} again`);
+  await page.waitForTimeout(600);
+  await moveTo(topBtn, 15);
+  await page.waitForTimeout(400);
+  log('click', { aimedAt: top });
+  await page.mouse.down(); await page.mouse.up();
+  await caption(`ack-incident: the confirm names ${top}; acking it`);
+  await confirmFor(top);
+}
+await page.locator(`[data-id="${top}"] [data-testid="acked"]`).waitFor();
 const ackedNow = await page.locator('[data-testid="acked"]').evaluateAll((els) => els.map((e) => e.closest('[data-testid="incident-row"]').dataset.id));
 log('acked-rows', { ids: ackedNow });
-await caption(`ack-incident: aimed at ${top}; the click acked ${under} — a new incident pushed the rows down`);
-await page.mouse.move(80, 820, { steps: 10 });
-await page.waitForTimeout(3500);
+await caption(`ack-incident: aimed at ${top}, acked ${top}; ${under} stays un-acked`);
+await page.mouse.move(80, 780, { steps: 10 });
+await page.waitForTimeout(3000);
 
 // watch-board: hands off, the board keeps itself current.
 await caption('watch-board: hands off; new incidents keep arriving at the top, acked marks stay');

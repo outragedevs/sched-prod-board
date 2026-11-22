@@ -105,23 +105,84 @@ test('SCHED-4513: refresh runs about every 2 seconds', async () => {
   await context.close();
 });
 
-test('SCHED-4511: Ack on a row acks that incident and marks the row; mark survives refreshes', async () => {
+test('SCHED-4515: Ack asks to confirm, names the id, and only confirm-ack acks; mark survives refreshes', async () => {
   const state = { incidents: [inc('INC-2', 3), inc('INC-1', 10)] };
   const { page, context, calls } = await openBoard({ state });
   const row = page.locator('[data-testid="incident-row"][data-id="INC-1"]');
   await row.locator('[data-testid="ack"]').click();
+  const confirm = page.locator('[data-testid="confirm"]');
+  await confirm.waitFor({ state: 'visible' });
+  assert.match(await confirm.innerText(), /INC-1/);
+  assert.equal(calls.ack.length, 0, 'no ack before confirming');
+  await page.locator('[data-testid="confirm-ack"]').click();
   await row.locator('[data-testid="acked"]').waitFor();
+  assert.ok(await confirm.isHidden());
   assert.equal(calls.ack.length, 1);
   assert.equal(calls.ack[0].searchParams.get('id'), 'INC-1');
   assert.equal(calls.ack[0].searchParams.get('t'), 'test-session');
   assert.ok(calls.ack[0].searchParams.get('cursor'));
   assert.equal(await row.locator('[data-testid="ack"]').count(), 0);
-  // Other rows untouched.
   assert.equal(await page.locator('[data-id="INC-2"] [data-testid="ack"]').count(), 1);
   state.incidents = [inc('INC-3', 0), ...state.incidents];
   await page.locator('[data-id="INC-3"]').waitFor();
   await page.waitForTimeout(2500);
   assert.equal(await row.locator('[data-testid="acked"]').count(), 1);
+  await context.close();
+});
+
+test('SCHED-4515: Cancel and Escape ack nothing', async () => {
+  const { page, context, calls } = await openBoard({ state: { incidents: [inc('INC-1', 1)] } });
+  const ackBtn = page.locator('[data-id="INC-1"] [data-testid="ack"]');
+  await ackBtn.click();
+  await page.locator('[data-testid="confirm-cancel"]').click();
+  assert.ok(await page.locator('[data-testid="confirm"]').isHidden());
+  await ackBtn.click();
+  await page.keyboard.press('Escape');
+  assert.ok(await page.locator('[data-testid="confirm"]').isHidden());
+  await page.waitForTimeout(300);
+  assert.equal(calls.ack.length, 0);
+  assert.equal(await page.locator('[data-testid="acked"]').count(), 0);
+  await context.close();
+});
+
+test('SCHED-4515: a click that lands on a shifted row shows the wrong id; cancel and re-pick acks the intended one', async () => {
+  const state = { incidents: [inc('INC-2', 3), inc('INC-1', 10)] };
+  const { page, context, calls } = await openBoard({ state });
+  const target = page.locator('[data-id="INC-2"] [data-testid="ack"]');
+  await target.waitFor();
+  const box = await target.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  state.incidents = [inc('INC-3', 0), ...state.incidents];
+  await page.locator('[data-id="INC-3"]').waitFor();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // now on INC-3
+  const confirm = page.locator('[data-testid="confirm"]');
+  await confirm.waitFor({ state: 'visible' });
+  assert.match(await confirm.innerText(), /INC-3/);
+  assert.doesNotMatch(await confirm.innerText(), /INC-2/);
+  await page.locator('[data-testid="confirm-cancel"]').click();
+  await target.click();
+  assert.match(await confirm.innerText(), /INC-2/);
+  await page.locator('[data-testid="confirm-ack"]').click();
+  await page.locator('[data-id="INC-2"] [data-testid="acked"]').waitFor();
+  assert.deepEqual(calls.ack.map((u) => u.searchParams.get('id')), ['INC-2']);
+  await context.close();
+});
+
+test('rows are never taken off: an empty answer does not blank the board', async () => {
+  const state = { incidents: [inc('INC-2', 3), inc('INC-1', 10)] };
+  const { page, context } = await openBoard({ state });
+  await page.locator('[data-testid="incident-row"]').first().waitFor();
+  await page.evaluate(() => {
+    window.__removed = 0;
+    new MutationObserver((rs) => rs.forEach((r) => (window.__removed += r.removedNodes.length))).observe(document.querySelector('[data-testid="incident-list"]'), { childList: true });
+  });
+  state.incidents = [];
+  await page.waitForTimeout(2500);
+  state.incidents = [inc('INC-3', 0), inc('INC-2', 3), inc('INC-1', 10)];
+  await page.locator('[data-id="INC-3"]').waitFor();
+  assert.deepEqual(await rowIds(page), ['INC-3', 'INC-2', 'INC-1']);
+  assert.equal(await page.evaluate(() => window.__removed), 0);
+  assert.ok(await page.locator('[data-testid="empty"]').isHidden());
   await context.close();
 });
 

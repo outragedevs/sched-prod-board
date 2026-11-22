@@ -14,7 +14,9 @@ what just broke and takes it.
 ## Requirements
 
 - **R1** New incidents appear live at the top of the list, newest first.
-- **R2** Each incident row has an **Ack** button. Ack sends the ack (`api.ack(id)`) and marks the row acked.
+- **R2** Each incident row has an **Ack** button. Ack first asks to confirm, and the confirm names the incident id; only
+  confirming sends the ack (`api.ack(id)`) and marks the row acked. Cancel (or Escape) acks nothing. (Product decision,
+  2026-11-22, after the step-one recording showed a new row shifting the list under the pointer at 00:09.)
 - **R3** Show a loader until incidents load.
 - **R4** The board refreshes itself every 2 seconds while open.
 - **R5** Times show in the viewer's local time; day before month for EU locales (dd/mm).
@@ -32,6 +34,9 @@ what just broke and takes it.
 | `ack` | the Ack button in a row |
 | `acked` | the acked mark in a row |
 | `build-sha` | the sha in the footer |
+| `confirm` | the ack confirm, naming the incident id |
+| `confirm-ack` | the confirm's Ack button (sends the ack) |
+| `confirm-cancel` | the confirm's Cancel button (acks nothing) |
 
 ## Done
 
