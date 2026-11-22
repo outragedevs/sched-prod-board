@@ -27,7 +27,7 @@ function buildRow(i) {
     <span class="what">${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>
     <time datetime="${esc(i.openedAt)}" title="${esc(i.openedAt)}">${esc(formatLocal(i.openedAt))}</time>
     <span class="act"><button type="button" data-testid="ack">Ack</button></span>`;
-  li.querySelector('button').addEventListener('click', () => onAck(i.id, li));
+  li.querySelector('button').addEventListener('click', () => askAck(i, li));
   return li;
 }
 
@@ -36,6 +36,43 @@ function markAcked(li, reply) {
   li.classList.add('is-acked');
   li.querySelector('.act').innerHTML = `<span data-testid="acked" class="acked" title="${esc(reply?.ackedAt ?? '')}">✓ acked ${esc(at)}</span>`;
 }
+
+// Ack asks first and names the incident, so a row that moved under the pointer is caught before it is acked.
+const confirmBox = document.querySelector('[data-testid="confirm"]');
+const confirmText = confirmBox.querySelector('.confirm-text');
+const confirmAck = confirmBox.querySelector('[data-testid="confirm-ack"]');
+const confirmCancel = confirmBox.querySelector('[data-testid="confirm-cancel"]');
+let pending = null;
+
+function askAck(i, li) {
+  if (acked.has(i.id)) return;
+  pending = { id: i.id, li };
+  confirmText.innerHTML = `Ack <strong class="confirm-id">${esc(i.id)}</strong>?<br /><span class="confirm-what">${esc(i.severity)} · ${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>`;
+  confirmBox.hidden = false;
+  confirmAck.focus();
+}
+
+function closeConfirm() {
+  const was = pending;
+  pending = null;
+  confirmBox.hidden = true;
+  was?.li.querySelector('[data-testid="ack"]')?.focus();
+}
+
+confirmAck.addEventListener('click', () => {
+  if (!pending) return;
+  const { id, li } = pending;
+  pending = null;
+  confirmBox.hidden = true;
+  onAck(id, li);
+});
+confirmCancel.addEventListener('click', closeConfirm);
+confirmBox.addEventListener('click', (e) => {
+  if (e.target === confirmBox) closeConfirm();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && pending) closeConfirm();
+});
 
 async function onAck(id, li) {
   if (acked.has(id)) return;
@@ -58,29 +95,22 @@ function showError(msg) {
   errorBox.hidden = !msg;
 }
 
-/** Puts the current incidents on screen, newest first; new ones go on top, existing rows stay put. */
+/**
+ * Merges an answer into the board: new incidents go in at their place by time (newest first), rows already
+ * on the board are never moved or taken off, so an empty or partial answer cannot blank the board.
+ */
 function render(incidents) {
-  const sorted = [...incidents].sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt));
-  const seen = new Set();
-  let prev = null;
-  for (const i of sorted) {
-    seen.add(i.id);
-    let li = rows.get(i.id);
-    if (!li) {
-      li = buildRow(i);
-      rows.set(i.id, li);
-    }
-    const want = prev ? prev.nextSibling : list.firstChild;
-    if (li !== want) list.insertBefore(li, want);
-    prev = li;
+  const fresh = incidents.filter((i) => !rows.has(i.id));
+  fresh.sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt)); // oldest first, each lands above older rows
+  for (const i of fresh) {
+    const li = buildRow(i);
+    li.dataset.openedAt = String(Date.parse(i.openedAt));
+    const t = Number(li.dataset.openedAt);
+    const before = [...list.children].find((el) => Number(el.dataset.openedAt) < t) ?? null;
+    list.insertBefore(li, before);
+    rows.set(i.id, li);
   }
-  for (const [id, li] of rows) {
-    if (!seen.has(id)) {
-      li.remove();
-      rows.delete(id);
-    }
-  }
-  empty.hidden = sorted.length > 0;
+  empty.hidden = rows.size > 0;
 }
 
 let loaded = false;

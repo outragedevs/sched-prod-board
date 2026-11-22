@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="build" content="c6ae2ef41518edba1cea1292ca6baeb417add8c4" />
+    <meta name="build" content="586c0405f23feafdd585db3250f7016abf73a2ff" />
     <title>sched-prod · incidents</title>
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="app.js"></script>
@@ -19,6 +19,15 @@
       <p class="error" role="alert" hidden></p>
       <ul data-testid="incident-list" class="list"></ul>
     </main>
-    <footer>sched-prod incident board · build <code data-testid="build-sha">c6ae2ef41518edba1cea1292ca6baeb417add8c4</code></footer>
+    <div data-testid="confirm" class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text" hidden>
+      <div class="confirm-card">
+        <p id="confirm-text" class="confirm-text"></p>
+        <div class="confirm-actions">
+          <button type="button" data-testid="confirm-cancel">Cancel</button>
+          <button type="button" data-testid="confirm-ack" class="primary">Ack</button>
+        </div>
+      </div>
+    </div>
+    <footer>sched-prod incident board · build <code data-testid="build-sha">586c0405f23feafdd585db3250f7016abf73a2ff</code></footer>
   </body>
 </html>
